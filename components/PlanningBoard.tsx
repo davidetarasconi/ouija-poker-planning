@@ -62,7 +62,7 @@ export default function PlanningBoard({ sessionId, userName }: Props) {
   const getClosestFibonacci = (x: number, y: number): number => {
     const positions = getFibonacciPositions();
     let minDistance = Infinity;
-    let closest = FIBONACCI_VALUES[0];
+    let closest: FibonacciValue = FIBONACCI_VALUES[0];
 
     positions.forEach(({ value, x: vx, y: vy }) => {
       const distance = Math.sqrt(Math.pow(x - vx, 2) + Math.pow(y - vy, 2));
