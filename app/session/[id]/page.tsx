@@ -10,6 +10,7 @@ function SessionContent() {
   const router = useRouter();
   const sessionId = params.id as string;
   const userNameFromUrl = searchParams.get('name');
+  const sessionNameFromUrl = searchParams.get('sessionName');
 
   const [userName, setUserName] = useState('');
   const [showNamePrompt, setShowNamePrompt] = useState(!userNameFromUrl);
@@ -69,7 +70,7 @@ function SessionContent() {
     );
   }
 
-  return <PlanningBoard sessionId={sessionId} userName={userNameFromUrl || userName} />;
+  return <PlanningBoard sessionId={sessionId} userName={userNameFromUrl || userName} sessionName={sessionNameFromUrl || undefined} />;
 }
 
 export default function SessionPage() {

@@ -7,9 +7,10 @@ import { FIBONACCI_VALUES, FibonacciValue } from '@/types';
 interface Props {
   sessionId: string;
   userName: string;
+  sessionName?: string;
 }
 
-export default function PlanningBoard({ sessionId, userName }: Props) {
+export default function PlanningBoard({ sessionId, userName, sessionName }: Props) {
   const {
     session,
     users,
@@ -18,13 +19,16 @@ export default function PlanningBoard({ sessionId, userName }: Props) {
     error,
     updateCursorPosition,
     updateVote,
+    updateSessionName,
     updateStoryName,
     updateMode,
     updateCardPosition,
     resetVotes,
-  } = useSession(sessionId, userName);
+  } = useSession(sessionId, userName, sessionName);
 
   const boardRef = useRef<HTMLDivElement>(null);
+  const [isEditingSession, setIsEditingSession] = useState(false);
+  const [sessionNameInput, setSessionNameInput] = useState('');
   const [isEditingStory, setIsEditingStory] = useState(false);
   const [storyNameInput, setStoryNameInput] = useState('');
   const [isDragging, setIsDragging] = useState(false);
@@ -32,6 +36,7 @@ export default function PlanningBoard({ sessionId, userName }: Props) {
 
   useEffect(() => {
     if (session) {
+      setSessionNameInput(session.session_name);
       setStoryNameInput(session.story_name);
     }
   }, [session]);
@@ -97,6 +102,13 @@ export default function PlanningBoard({ sessionId, userName }: Props) {
     return { x: user.cursor_x, y: user.cursor_y };
   };
 
+  const handleSaveSessionName = () => {
+    if (sessionNameInput.trim()) {
+      updateSessionName(sessionNameInput);
+      setIsEditingSession(false);
+    }
+  };
+
   const handleSaveStoryName = () => {
     if (storyNameInput.trim()) {
       updateStoryName(storyNameInput);
@@ -104,7 +116,7 @@ export default function PlanningBoard({ sessionId, userName }: Props) {
     }
   };
 
-  const handleDeleteStoryName = () => {
+  const handleClearStoryName = () => {
     updateStoryName('User Story');
     setStoryNameInput('User Story');
     setIsEditingStory(false);
@@ -159,41 +171,76 @@ export default function PlanningBoard({ sessionId, userName }: Props) {
         <div className="bg-white/10 backdrop-blur-md rounded-lg p-6 shadow-xl">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex-1">
-              {isEditingStory ? (
-                <div className="flex gap-2">
+              {/* Session Name */}
+              {isEditingSession ? (
+                <div className="flex gap-2 mb-3">
                   <input
                     type="text"
-                    value={storyNameInput}
-                    onChange={(e) => setStoryNameInput(e.target.value)}
-                    onBlur={handleSaveStoryName}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSaveStoryName()}
+                    value={sessionNameInput}
+                    onChange={(e) => setSessionNameInput(e.target.value)}
+                    onBlur={handleSaveSessionName}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSaveSessionName()}
                     className="flex-1 px-4 py-2 bg-white/20 text-white placeholder-white/50 rounded-lg border border-white/30 focus:outline-none focus:border-white/60"
-                    placeholder="Enter user story name"
+                    placeholder="Enter session name"
                     autoFocus
                   />
                   <button
-                    onClick={handleSaveStoryName}
+                    onClick={handleSaveSessionName}
                     className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold transition-colors"
                   >
                     Save
                   </button>
-                  <button
-                    onClick={handleDeleteStoryName}
-                    className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition-colors"
-                  >
-                    Clear
-                  </button>
                 </div>
               ) : (
                 <h1
-                  className="text-2xl font-bold text-white cursor-pointer hover:text-purple-200 transition-colors"
-                  onClick={() => setIsEditingStory(true)}
-                  title="Click to edit"
+                  className="text-2xl font-bold text-white cursor-pointer hover:text-purple-200 transition-colors mb-1"
+                  onClick={() => setIsEditingSession(true)}
+                  title="Click to edit session name"
                 >
-                  {session.story_name}
+                  {session.session_name}
                 </h1>
               )}
-              <p className="text-white/60 text-sm mt-1">Session: {sessionId}</p>
+
+              {/* Story Name */}
+              <div className="mb-2">
+                {isEditingStory ? (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={storyNameInput}
+                      onChange={(e) => setStoryNameInput(e.target.value)}
+                      onBlur={handleSaveStoryName}
+                      onKeyPress={(e) => e.key === 'Enter' && handleSaveStoryName()}
+                      className="flex-1 px-3 py-1.5 bg-white/20 text-white placeholder-white/50 rounded-lg border border-white/30 focus:outline-none focus:border-white/60 text-sm"
+                      placeholder="Enter user story name"
+                      autoFocus
+                    />
+                    <button
+                      onClick={handleSaveStoryName}
+                      className="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-semibold transition-colors"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={handleClearStoryName}
+                      className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-semibold transition-colors"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    className="cursor-pointer hover:text-white/80 transition-colors inline-flex items-center gap-2"
+                    onClick={() => setIsEditingStory(true)}
+                    title="Click to edit user story"
+                  >
+                    <span className="text-white/90 text-base font-medium">📖 Story:</span>
+                    <span className="text-white font-semibold">{session.story_name}</span>
+                  </div>
+                )}
+              </div>
+
+              <p className="text-white/60 text-sm">Session ID: {sessionId}</p>
             </div>
 
             <div className="flex gap-3 flex-wrap">

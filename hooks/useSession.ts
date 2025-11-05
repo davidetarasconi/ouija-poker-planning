@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { Session, User, Mode } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 
-export function useSession(sessionId: string, userName: string) {
+export function useSession(sessionId: string, userName: string, sessionName?: string) {
   const [session, setSession] = useState<Session | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [currentUserId] = useState(() => uuidv4());
@@ -55,6 +55,7 @@ export function useSession(sessionId: string, userName: string) {
             .from('sessions')
             .upsert({
               id: sessionId,
+              session_name: sessionName || 'Planning Session',
               story_name: 'User Story',
               mode: 'voting',
               card_x: 50,
@@ -141,6 +142,7 @@ export function useSession(sessionId: string, userName: string) {
     }
 
     initSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
 
     // Set up realtime subscriptions
     const sessionChannel = supabase
@@ -227,6 +229,16 @@ export function useSession(sessionId: string, userName: string) {
     [currentUserId]
   );
 
+  const updateSessionName = useCallback(
+    async (name: string) => {
+      await supabase
+        .from('sessions')
+        .update({ session_name: name, updated_at: new Date().toISOString() })
+        .eq('id', sessionId);
+    },
+    [sessionId]
+  );
+
   const updateStoryName = useCallback(
     async (name: string) => {
       await supabase
@@ -279,6 +291,7 @@ export function useSession(sessionId: string, userName: string) {
     error,
     updateCursorPosition,
     updateVote,
+    updateSessionName,
     updateStoryName,
     updateMode,
     updateCardPosition,
