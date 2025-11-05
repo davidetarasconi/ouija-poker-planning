@@ -11,7 +11,7 @@ export function useSession(sessionId: string, userName: string) {
   const [currentUserId] = useState(() => uuidv4());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const updateTimeoutRef = useRef<NodeJS.Timeout>();
+  const updateTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
   // Initialize session
   useEffect(() => {
