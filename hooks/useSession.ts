@@ -17,6 +17,18 @@ export function useSession(sessionId: string, userName: string) {
   useEffect(() => {
     async function initSession() {
       try {
+        // Check environment variables
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+        if (!supabaseUrl || !supabaseAnonKey) {
+          throw new Error(
+            'Supabase is not configured. Please set up your .env.local file with NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY. See SETUP.md for instructions.'
+          );
+        }
+
+        console.log('Initializing session:', sessionId);
+
         // Fetch or create session
         const { data: sessionData, error: sessionError } = await supabase
           .from('sessions')
@@ -24,12 +36,21 @@ export function useSession(sessionId: string, userName: string) {
           .eq('id', sessionId)
           .single();
 
+        console.log('Session query result:', { sessionData, sessionError });
+
         if (sessionError && sessionError.code !== 'PGRST116') {
-          throw sessionError;
+          console.error('Session error details:', {
+            message: sessionError.message,
+            details: sessionError.details,
+            hint: sessionError.hint,
+            code: sessionError.code,
+          });
+          throw new Error(`Database error: ${sessionError.message}. Check if tables are created in Supabase.`);
         }
 
         if (!sessionData) {
           // Create new session
+          console.log('Creating new session...');
           const { data: newSession, error: createError } = await supabase
             .from('sessions')
             .insert({
@@ -42,13 +63,23 @@ export function useSession(sessionId: string, userName: string) {
             .select()
             .single();
 
-          if (createError) throw createError;
+          if (createError) {
+            console.error('Create session error:', {
+              message: createError.message,
+              details: createError.details,
+              hint: createError.hint,
+            });
+            throw new Error(`Failed to create session: ${createError.message}`);
+          }
+          console.log('Session created:', newSession);
           setSession(newSession);
         } else {
+          console.log('Session found:', sessionData);
           setSession(sessionData);
         }
 
         // Create or update user
+        console.log('Creating user:', { currentUserId, userName });
         const { error: userError } = await supabase
           .from('users')
           .upsert({
@@ -61,7 +92,14 @@ export function useSession(sessionId: string, userName: string) {
             last_seen: new Date().toISOString(),
           });
 
-        if (userError) throw userError;
+        if (userError) {
+          console.error('User error:', {
+            message: userError.message,
+            details: userError.details,
+            hint: userError.hint,
+          });
+          throw new Error(`Failed to create user: ${userError.message}`);
+        }
 
         // Fetch all users
         const { data: usersData, error: usersError } = await supabase
@@ -69,13 +107,21 @@ export function useSession(sessionId: string, userName: string) {
           .select('*')
           .eq('session_id', sessionId);
 
-        if (usersError) throw usersError;
+        if (usersError) {
+          console.error('Users fetch error:', usersError);
+          throw new Error(`Failed to fetch users: ${usersError.message}`);
+        }
+        console.log('Users fetched:', usersData);
         setUsers(usersData || []);
 
+        console.log('Session initialized successfully');
         setLoading(false);
       } catch (err) {
         console.error('Error initializing session:', err);
-        setError(err instanceof Error ? err.message : 'Failed to initialize session');
+        const errorMessage = err instanceof Error
+          ? err.message
+          : 'Failed to initialize session. Please check your Supabase configuration.';
+        setError(errorMessage);
         setLoading(false);
       }
     }
