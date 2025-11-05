@@ -29,16 +29,16 @@ export function useSession(sessionId: string, userName: string) {
 
         console.log('Initializing session:', sessionId);
 
-        // Fetch or create session
+        // Fetch or create session - use maybeSingle() to avoid errors when no rows exist
         const { data: sessionData, error: sessionError } = await supabase
           .from('sessions')
           .select('*')
           .eq('id', sessionId)
-          .single();
+          .maybeSingle();
 
         console.log('Session query result:', { sessionData, sessionError });
 
-        if (sessionError && sessionError.code !== 'PGRST116') {
+        if (sessionError) {
           console.error('Session error details:', {
             message: sessionError.message,
             details: sessionError.details,
