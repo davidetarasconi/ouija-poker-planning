@@ -83,7 +83,7 @@ export default function PlanningBoard({ sessionId, userName, sessionName }: Prop
   };
 
   const getFibonacciPositions = () => {
-    const centerY = 50;
+    const topY = 20; // Position near top for compact design
     const spacing = 80 / (FIBONACCI_VALUES.length - 1); // Spread across 80% of width
     const startX = 10; // Start at 10% from left
 
@@ -91,7 +91,7 @@ export default function PlanningBoard({ sessionId, userName, sessionName }: Prop
       return {
         value,
         x: startX + (index * spacing),
-        y: centerY,
+        y: topY,
       };
     });
   };
