@@ -43,9 +43,10 @@ export default function PlanningBoard({ sessionId, userName }: Props) {
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
 
+    // Always update cursor position for both modes
     updateCursorPosition(x, y);
 
-    // Calculate vote based on cursor position
+    // In voting mode, update vote based on cursor position
     if (session?.mode === 'voting') {
       const closestValue = getClosestFibonacci(x, y);
       const currentUser = users.find(u => u.id === currentUserId);
@@ -54,7 +55,7 @@ export default function PlanningBoard({ sessionId, userName }: Props) {
       }
     }
 
-    // In Ouija mode, if user is "dragging", update card position
+    // In Ouija mode, if user is "dragging", update the shared card position
     if (session?.mode === 'ouija' && isDragging) {
       updateCardPosition(x, y);
     }
@@ -91,34 +92,9 @@ export default function PlanningBoard({ sessionId, userName }: Props) {
     });
   };
 
-  const calculateAveragePosition = () => {
-    if (!session || users.length === 0) return { x: 50, y: 50 };
-
-    if (session.mode === 'voting') {
-      // Calculate weighted average based on user votes
-      const votingUsers = users.filter(u => u.vote_value !== null);
-      if (votingUsers.length === 0) return { x: 50, y: 50 };
-
-      const positions = getFibonacciPositions();
-      let totalX = 0;
-      let totalY = 0;
-
-      votingUsers.forEach(user => {
-        const pos = positions.find(p => p.value === user.vote_value);
-        if (pos) {
-          totalX += pos.x;
-          totalY += pos.y;
-        }
-      });
-
-      return {
-        x: totalX / votingUsers.length,
-        y: totalY / votingUsers.length,
-      };
-    } else {
-      // In Ouija mode, use the session's card position
-      return { x: session.card_x, y: session.card_y };
-    }
+  const getUserCardPosition = (user: typeof users[0]) => {
+    // In voting mode, user's card is at their cursor position
+    return { x: user.cursor_x, y: user.cursor_y };
   };
 
   const handleSaveStoryName = () => {
@@ -172,8 +148,9 @@ export default function PlanningBoard({ sessionId, userName }: Props) {
   if (!session) return null;
 
   const fibPositions = getFibonacciPositions();
-  const cardPosition = calculateAveragePosition();
+  const sharedCardPosition = { x: session.card_x, y: session.card_y };
   const otherUsers = users.filter(u => u.id !== currentUserId);
+  const currentUser = users.find(u => u.id === currentUserId);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-indigo-900 to-blue-900 p-8">
@@ -306,7 +283,7 @@ export default function PlanningBoard({ sessionId, userName }: Props) {
           {/* Instructions */}
           <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-black/50 text-white px-6 py-3 rounded-full text-sm">
             {session.mode === 'voting'
-              ? '🗳️ Move your cursor to vote on story points'
+              ? '🗳️ Move your cursor to place your vote card'
               : '🔮 Click and drag to move the card with your team'}
           </div>
 
@@ -323,8 +300,8 @@ export default function PlanningBoard({ sessionId, userName }: Props) {
             </div>
           ))}
 
-          {/* Other users' cursors */}
-          {otherUsers.map(user => (
+          {/* Other users' cursors - only show in Ouija mode */}
+          {session.mode === 'ouija' && otherUsers.map(user => (
             <div
               key={user.id}
               className="absolute transform -translate-x-1/2 -translate-y-1/2 pointer-events-none"
@@ -339,22 +316,52 @@ export default function PlanningBoard({ sessionId, userName }: Props) {
             </div>
           ))}
 
-          {/* Story card */}
-          <div
-            className="absolute transform -translate-x-1/2 -translate-y-1/2 pointer-events-none transition-all duration-300 ease-out"
-            style={{ left: `${cardPosition.x}%`, top: `${cardPosition.y}%` }}
-          >
-            <div className="bg-white rounded-xl p-6 shadow-2xl w-48 border-4 border-purple-400">
-              <div className="text-center">
-                <div className="text-4xl font-bold text-purple-900 mb-2">
-                  {getClosestFibonacci(cardPosition.x, cardPosition.y)}
+          {/* Individual user cards in Voting mode */}
+          {session.mode === 'voting' && users.map(user => {
+            const position = getUserCardPosition(user);
+            const isCurrentUser = user.id === currentUserId;
+            return (
+              <div
+                key={user.id}
+                className="absolute transform -translate-x-1/2 -translate-y-1/2 pointer-events-none transition-all duration-150 ease-out"
+                style={{ left: `${position.x}%`, top: `${position.y}%` }}
+              >
+                <div className={`bg-white rounded-xl p-4 shadow-2xl border-4 ${
+                  isCurrentUser ? 'border-green-400 w-40' : 'border-blue-400 w-36'
+                }`}>
+                  <div className="text-center">
+                    <div className={`font-bold text-purple-900 mb-1 ${
+                      isCurrentUser ? 'text-3xl' : 'text-2xl'
+                    }`}>
+                      {user.vote_value !== null ? user.vote_value : '?'}
+                    </div>
+                    <div className="text-xs text-gray-600 font-semibold truncate">
+                      {user.name}
+                    </div>
+                  </div>
                 </div>
-                <div className="text-xs text-gray-600">
-                  {session.mode === 'voting' ? 'Average Vote' : 'Team Estimate'}
+              </div>
+            );
+          })}
+
+          {/* Shared card - only in Ouija mode */}
+          {session.mode === 'ouija' && (
+            <div
+              className="absolute transform -translate-x-1/2 -translate-y-1/2 pointer-events-none transition-all duration-300 ease-out"
+              style={{ left: `${sharedCardPosition.x}%`, top: `${sharedCardPosition.y}%` }}
+            >
+              <div className="bg-white rounded-xl p-6 shadow-2xl w-48 border-4 border-purple-400">
+                <div className="text-center">
+                  <div className="text-4xl font-bold text-purple-900 mb-2">
+                    {getClosestFibonacci(sharedCardPosition.x, sharedCardPosition.y)}
+                  </div>
+                  <div className="text-xs text-gray-600">
+                    Team Estimate
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
