@@ -83,16 +83,15 @@ export default function PlanningBoard({ sessionId, userName, sessionName }: Prop
   };
 
   const getFibonacciPositions = () => {
-    const radius = 40;
-    const centerX = 50;
     const centerY = 50;
+    const spacing = 80 / (FIBONACCI_VALUES.length - 1); // Spread across 80% of width
+    const startX = 10; // Start at 10% from left
 
     return FIBONACCI_VALUES.map((value, index) => {
-      const angle = (index / FIBONACCI_VALUES.length) * 2 * Math.PI - Math.PI / 2;
       return {
         value,
-        x: centerX + radius * Math.cos(angle),
-        y: centerY + radius * Math.sin(angle),
+        x: startX + (index * spacing),
+        y: centerY,
       };
     });
   };
