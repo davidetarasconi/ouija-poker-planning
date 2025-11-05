@@ -173,7 +173,7 @@ export default function PlanningBoard({ sessionId, userName, sessionName }: Prop
             <div className="flex-1">
               {/* Session Name */}
               {isEditingSession ? (
-                <div className="flex gap-2 mb-3">
+                <div className="flex gap-2 mb-2">
                   <input
                     type="text"
                     value={sessionNameInput}
@@ -193,52 +193,13 @@ export default function PlanningBoard({ sessionId, userName, sessionName }: Prop
                 </div>
               ) : (
                 <h1
-                  className="text-2xl font-bold text-white cursor-pointer hover:text-purple-200 transition-colors mb-1"
+                  className="text-2xl font-bold text-white cursor-pointer hover:text-purple-200 transition-colors mb-2"
                   onClick={() => setIsEditingSession(true)}
                   title="Click to edit session name"
                 >
                   {session.session_name}
                 </h1>
               )}
-
-              {/* Story Name */}
-              <div className="mb-2">
-                {isEditingStory ? (
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={storyNameInput}
-                      onChange={(e) => setStoryNameInput(e.target.value)}
-                      onBlur={handleSaveStoryName}
-                      onKeyPress={(e) => e.key === 'Enter' && handleSaveStoryName()}
-                      className="flex-1 px-3 py-1.5 bg-white/20 text-white placeholder-white/50 rounded-lg border border-white/30 focus:outline-none focus:border-white/60 text-sm"
-                      placeholder="Enter user story name"
-                      autoFocus
-                    />
-                    <button
-                      onClick={handleSaveStoryName}
-                      className="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-semibold transition-colors"
-                    >
-                      Save
-                    </button>
-                    <button
-                      onClick={handleClearStoryName}
-                      className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-semibold transition-colors"
-                    >
-                      Clear
-                    </button>
-                  </div>
-                ) : (
-                  <div
-                    className="cursor-pointer hover:text-white/80 transition-colors inline-flex items-center gap-2"
-                    onClick={() => setIsEditingStory(true)}
-                    title="Click to edit user story"
-                  >
-                    <span className="text-white/90 text-base font-medium">📖 Story:</span>
-                    <span className="text-white font-semibold">{session.story_name}</span>
-                  </div>
-                )}
-              </div>
 
               <p className="text-white/60 text-sm">Session ID: {sessionId}</p>
             </div>
@@ -296,7 +257,50 @@ export default function PlanningBoard({ sessionId, userName, sessionName }: Prop
       {/* Voting Results Summary */}
       <div className="max-w-6xl mx-auto mb-6">
         <div className="bg-white/10 backdrop-blur-md rounded-lg p-6 shadow-xl">
-          <h2 className="text-xl font-bold text-white mb-4">Voting Results</h2>
+          {/* Title with Story Name */}
+          <div className="mb-4">
+            {isEditingStory ? (
+              <div>
+                <h2 className="text-xl font-bold text-white mb-2">Voting results for:</h2>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={storyNameInput}
+                    onChange={(e) => setStoryNameInput(e.target.value)}
+                    onBlur={handleSaveStoryName}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSaveStoryName()}
+                    className="flex-1 px-4 py-2 bg-white/20 text-white placeholder-white/50 rounded-lg border border-white/30 focus:outline-none focus:border-white/60"
+                    placeholder="Enter user story name"
+                    autoFocus
+                  />
+                  <button
+                    onClick={handleSaveStoryName}
+                    className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold transition-colors"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={handleClearStoryName}
+                    className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-semibold transition-colors"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <h2 className="text-xl font-bold text-white">
+                Voting results for:{' '}
+                <span
+                  className="cursor-pointer hover:text-purple-200 transition-colors underline decoration-2 decoration-purple-400"
+                  onClick={() => setIsEditingStory(true)}
+                  title="Click to edit user story"
+                >
+                  {session.story_name}
+                </span>
+              </h2>
+            )}
+          </div>
+
           <div className="grid grid-cols-7 gap-2">
             {FIBONACCI_VALUES.map(value => {
               const count = users.filter(u => u.vote_value === value).length;
