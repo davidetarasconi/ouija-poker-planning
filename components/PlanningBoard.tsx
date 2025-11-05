@@ -28,6 +28,7 @@ export default function PlanningBoard({ sessionId, userName }: Props) {
   const [isEditingStory, setIsEditingStory] = useState(false);
   const [storyNameInput, setStoryNameInput] = useState('');
   const [isDragging, setIsDragging] = useState(false);
+  const [showCopiedMessage, setShowCopiedMessage] = useState(false);
 
   useEffect(() => {
     if (session) {
@@ -127,6 +128,24 @@ export default function PlanningBoard({ sessionId, userName }: Props) {
     }
   };
 
+  const handleDeleteStoryName = () => {
+    updateStoryName('User Story');
+    setStoryNameInput('User Story');
+    setIsEditingStory(false);
+  };
+
+  const handleShareLink = async () => {
+    const shareUrl = window.location.href;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setShowCopiedMessage(true);
+      setTimeout(() => setShowCopiedMessage(false), 2000);
+    } catch (err) {
+      // Fallback for browsers that don't support clipboard API
+      console.error('Failed to copy link:', err);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-purple-900 via-indigo-900 to-blue-900">
@@ -168,13 +187,27 @@ export default function PlanningBoard({ sessionId, userName }: Props) {
                     onBlur={handleSaveStoryName}
                     onKeyPress={(e) => e.key === 'Enter' && handleSaveStoryName()}
                     className="flex-1 px-4 py-2 bg-white/20 text-white placeholder-white/50 rounded-lg border border-white/30 focus:outline-none focus:border-white/60"
+                    placeholder="Enter user story name"
                     autoFocus
                   />
+                  <button
+                    onClick={handleSaveStoryName}
+                    className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold transition-colors"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={handleDeleteStoryName}
+                    className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition-colors"
+                  >
+                    Clear
+                  </button>
                 </div>
               ) : (
                 <h1
                   className="text-2xl font-bold text-white cursor-pointer hover:text-purple-200 transition-colors"
                   onClick={() => setIsEditingStory(true)}
+                  title="Click to edit"
                 >
                   {session.story_name}
                 </h1>
@@ -182,7 +215,21 @@ export default function PlanningBoard({ sessionId, userName }: Props) {
               <p className="text-white/60 text-sm mt-1">Session: {sessionId}</p>
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex gap-3 flex-wrap">
+              <div className="relative">
+                <button
+                  onClick={handleShareLink}
+                  className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-semibold transition-colors shadow-lg"
+                  title="Copy session link"
+                >
+                  📋 Share Link
+                </button>
+                {showCopiedMessage && (
+                  <div className="absolute top-full mt-2 left-1/2 transform -translate-x-1/2 bg-green-500 text-white px-3 py-1 rounded text-sm whitespace-nowrap">
+                    Link copied!
+                  </div>
+                )}
+              </div>
               <button
                 onClick={() => updateMode(session.mode === 'voting' ? 'ouija' : 'voting')}
                 className="px-6 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg font-semibold transition-colors shadow-lg"
@@ -218,6 +265,26 @@ export default function PlanningBoard({ sessionId, userName }: Props) {
         </div>
       </div>
 
+      {/* Voting Results Summary */}
+      <div className="max-w-6xl mx-auto mb-6">
+        <div className="bg-white/10 backdrop-blur-md rounded-lg p-6 shadow-xl">
+          <h2 className="text-xl font-bold text-white mb-4">Voting Results</h2>
+          <div className="grid grid-cols-7 gap-2">
+            {FIBONACCI_VALUES.map(value => {
+              const count = users.filter(u => u.vote_value === value).length;
+              return (
+                <div key={value} className="text-center">
+                  <div className="bg-purple-500/30 rounded-lg p-3">
+                    <div className="text-2xl font-bold text-white">{value}</div>
+                    <div className="text-sm text-white/60">{count} vote{count !== 1 ? 's' : ''}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
       {/* Planning Board */}
       <div className="max-w-6xl mx-auto">
         <div
@@ -231,6 +298,13 @@ export default function PlanningBoard({ sessionId, userName }: Props) {
         >
           {/* Mystical background effect */}
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_transparent_0%,_rgba(0,0,0,0.4)_100%)]" />
+
+          {/* Instructions */}
+          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-black/50 text-white px-6 py-3 rounded-full text-sm">
+            {session.mode === 'voting'
+              ? '🗳️ Move your cursor to vote on story points'
+              : '🔮 Click and drag to move the card with your team'}
+          </div>
 
           {/* Fibonacci value positions */}
           {fibPositions.map(({ value, x, y }) => (
@@ -276,33 +350,6 @@ export default function PlanningBoard({ sessionId, userName }: Props) {
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* Instructions */}
-          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black/50 text-white px-6 py-3 rounded-full text-sm">
-            {session.mode === 'voting'
-              ? '🗳️ Move your cursor to vote on story points'
-              : '🔮 Click and drag to move the card with your team'}
-          </div>
-        </div>
-      </div>
-
-      {/* Results Summary */}
-      <div className="max-w-6xl mx-auto mt-8">
-        <div className="bg-white/10 backdrop-blur-md rounded-lg p-6 shadow-xl">
-          <h2 className="text-xl font-bold text-white mb-4">Voting Results</h2>
-          <div className="grid grid-cols-7 gap-2">
-            {FIBONACCI_VALUES.map(value => {
-              const count = users.filter(u => u.vote_value === value).length;
-              return (
-                <div key={value} className="text-center">
-                  <div className="bg-purple-500/30 rounded-lg p-3">
-                    <div className="text-2xl font-bold text-white">{value}</div>
-                    <div className="text-sm text-white/60">{count} vote{count !== 1 ? 's' : ''}</div>
-                  </div>
-                </div>
-              );
-            })}
           </div>
         </div>
       </div>
