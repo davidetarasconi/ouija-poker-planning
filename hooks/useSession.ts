@@ -55,6 +55,7 @@ export function useSession(sessionId: string, userName: string) {
             .from('sessions')
             .insert({
               id: sessionId,
+              session_name: 'Planning Session',
               story_name: 'User Story',
               mode: 'voting',
               card_x: 50,

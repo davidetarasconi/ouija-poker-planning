@@ -35,6 +35,7 @@ Run this SQL in your Supabase SQL Editor (**SQL Editor** in the sidebar):
 -- Create sessions table
 CREATE TABLE IF NOT EXISTS sessions (
   id TEXT PRIMARY KEY,
+  session_name TEXT DEFAULT 'Planning Session',
   story_name TEXT DEFAULT 'User Story',
   mode TEXT DEFAULT 'voting',
   card_x REAL DEFAULT 50,
@@ -62,6 +63,13 @@ ALTER PUBLICATION supabase_realtime ADD TABLE users;
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_users_session_id ON users(session_id);
 CREATE INDEX IF NOT EXISTS idx_users_last_seen ON users(last_seen);
+```
+
+**If you have an existing database**, run this migration to add the session_name column:
+
+```sql
+-- Add session_name column to existing sessions table
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS session_name TEXT DEFAULT 'Planning Session';
 ```
 
 ### 5. Run the Development Server

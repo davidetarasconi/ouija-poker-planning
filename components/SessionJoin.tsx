@@ -1,16 +1,52 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
+import { Session } from '@/types';
 
 export default function SessionJoin() {
   const [userName, setUserName] = useState('');
   const [sessionId, setSessionId] = useState('');
   const [mode, setMode] = useState<'create' | 'join'>('create');
+  const [sessionData, setSessionData] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const generateSessionId = () => {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
+  };
+
+  // Check for sessionId in URL and fetch session data
+  useEffect(() => {
+    const sessionIdFromUrl = searchParams.get('sessionId');
+    if (sessionIdFromUrl) {
+      setSessionId(sessionIdFromUrl);
+      setMode('join');
+      fetchSessionData(sessionIdFromUrl);
+    }
+  }, [searchParams]);
+
+  const fetchSessionData = async (id: string) => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('sessions')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching session:', error);
+      } else if (data) {
+        setSessionData(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch session:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -101,7 +137,17 @@ export default function SessionJoin() {
                   placeholder="Enter session ID"
                   className="w-full px-4 py-3 bg-white/20 text-white placeholder-white/50 rounded-lg border border-white/30 focus:outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-400/50 uppercase"
                   required
+                  disabled={!!searchParams.get('sessionId')}
                 />
+                {loading && (
+                  <p className="text-white/70 text-sm mt-2">Loading session details...</p>
+                )}
+                {sessionData && (
+                  <div className="mt-3 p-3 bg-white/10 rounded-lg border border-white/20">
+                    <p className="text-white font-semibold">{sessionData.session_name}</p>
+                    <p className="text-white/60 text-sm">Session ID: {sessionData.id}</p>
+                  </div>
+                )}
               </div>
             )}
 

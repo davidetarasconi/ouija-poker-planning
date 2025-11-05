@@ -17,6 +17,7 @@ export interface User {
 
 export interface Session {
   id: string;
+  session_name: string;
   story_name: string;
   mode: Mode;
   card_x: number;
