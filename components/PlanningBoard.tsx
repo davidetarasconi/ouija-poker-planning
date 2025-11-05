@@ -135,7 +135,11 @@ export default function PlanningBoard({ sessionId, userName }: Props) {
   };
 
   const handleShareLink = async () => {
-    const shareUrl = window.location.href;
+    // Share only the session URL without the name parameter
+    const baseUrl = window.location.origin;
+    const sessionPath = `/session/${sessionId}`;
+    const shareUrl = `${baseUrl}${sessionPath}`;
+
     try {
       await navigator.clipboard.writeText(shareUrl);
       setShowCopiedMessage(true);
