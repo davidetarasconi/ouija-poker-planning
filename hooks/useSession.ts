@@ -49,19 +49,20 @@ export function useSession(sessionId: string, userName: string) {
         }
 
         if (!sessionData) {
-          // Create new session
+          // Create new session using upsert to handle race conditions
           console.log('Creating new session...');
-          const { data: newSession, error: createError } = await supabase
+          const { error: createError } = await supabase
             .from('sessions')
-            .insert({
+            .upsert({
               id: sessionId,
               story_name: 'User Story',
               mode: 'voting',
               card_x: 50,
               card_y: 50,
-            })
-            .select()
-            .single();
+            }, {
+              onConflict: 'id',
+              ignoreDuplicates: true
+            });
 
           if (createError) {
             console.error('Create session error:', {
@@ -71,8 +72,21 @@ export function useSession(sessionId: string, userName: string) {
             });
             throw new Error(`Failed to create session: ${createError.message}`);
           }
-          console.log('Session created:', newSession);
-          setSession(newSession);
+
+          // Fetch the session (whether it was just created or already existed)
+          const { data: fetchedSession, error: fetchError } = await supabase
+            .from('sessions')
+            .select('*')
+            .eq('id', sessionId)
+            .single();
+
+          if (fetchError || !fetchedSession) {
+            console.error('Failed to fetch session after upsert:', fetchError);
+            throw new Error(`Failed to fetch session: ${fetchError?.message || 'Unknown error'}`);
+          }
+
+          console.log('Session created/fetched:', fetchedSession);
+          setSession(fetchedSession);
         } else {
           console.log('Session found:', sessionData);
           setSession(sessionData);
