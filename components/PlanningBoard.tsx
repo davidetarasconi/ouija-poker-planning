@@ -7,9 +7,10 @@ import { FIBONACCI_VALUES, FibonacciValue } from '@/types';
 interface Props {
   sessionId: string;
   userName: string;
+  sessionName?: string;
 }
 
-export default function PlanningBoard({ sessionId, userName }: Props) {
+export default function PlanningBoard({ sessionId, userName, sessionName }: Props) {
   const {
     session,
     users,
@@ -18,19 +19,24 @@ export default function PlanningBoard({ sessionId, userName }: Props) {
     error,
     updateCursorPosition,
     updateVote,
+    updateSessionName,
     updateStoryName,
     updateMode,
     updateCardPosition,
     resetVotes,
-  } = useSession(sessionId, userName);
+  } = useSession(sessionId, userName, sessionName);
 
   const boardRef = useRef<HTMLDivElement>(null);
+  const [isEditingSession, setIsEditingSession] = useState(false);
+  const [sessionNameInput, setSessionNameInput] = useState('');
   const [isEditingStory, setIsEditingStory] = useState(false);
   const [storyNameInput, setStoryNameInput] = useState('');
   const [isDragging, setIsDragging] = useState(false);
+  const [showCopiedMessage, setShowCopiedMessage] = useState(false);
 
   useEffect(() => {
     if (session) {
+      setSessionNameInput(session.session_name);
       setStoryNameInput(session.story_name);
     }
   }, [session]);
@@ -42,9 +48,10 @@ export default function PlanningBoard({ sessionId, userName }: Props) {
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
 
+    // Always update cursor position for both modes
     updateCursorPosition(x, y);
 
-    // Calculate vote based on cursor position
+    // In voting mode, update vote based on cursor position
     if (session?.mode === 'voting') {
       const closestValue = getClosestFibonacci(x, y);
       const currentUser = users.find(u => u.id === currentUserId);
@@ -53,7 +60,7 @@ export default function PlanningBoard({ sessionId, userName }: Props) {
       }
     }
 
-    // In Ouija mode, if user is "dragging", update card position
+    // In Ouija mode, if user is "dragging", update the shared card position
     if (session?.mode === 'ouija' && isDragging) {
       updateCardPosition(x, y);
     }
@@ -76,47 +83,28 @@ export default function PlanningBoard({ sessionId, userName }: Props) {
   };
 
   const getFibonacciPositions = () => {
-    const radius = 40;
-    const centerX = 50;
-    const centerY = 50;
+    const topY = 20; // Position near top for compact design
+    const spacing = 80 / (FIBONACCI_VALUES.length - 1); // Spread across 80% of width
+    const startX = 10; // Start at 10% from left
 
     return FIBONACCI_VALUES.map((value, index) => {
-      const angle = (index / FIBONACCI_VALUES.length) * 2 * Math.PI - Math.PI / 2;
       return {
         value,
-        x: centerX + radius * Math.cos(angle),
-        y: centerY + radius * Math.sin(angle),
+        x: startX + (index * spacing),
+        y: topY,
       };
     });
   };
 
-  const calculateAveragePosition = () => {
-    if (!session || users.length === 0) return { x: 50, y: 50 };
+  const getUserCardPosition = (user: typeof users[0]) => {
+    // In voting mode, user's card is at their cursor position
+    return { x: user.cursor_x, y: user.cursor_y };
+  };
 
-    if (session.mode === 'voting') {
-      // Calculate weighted average based on user votes
-      const votingUsers = users.filter(u => u.vote_value !== null);
-      if (votingUsers.length === 0) return { x: 50, y: 50 };
-
-      const positions = getFibonacciPositions();
-      let totalX = 0;
-      let totalY = 0;
-
-      votingUsers.forEach(user => {
-        const pos = positions.find(p => p.value === user.vote_value);
-        if (pos) {
-          totalX += pos.x;
-          totalY += pos.y;
-        }
-      });
-
-      return {
-        x: totalX / votingUsers.length,
-        y: totalY / votingUsers.length,
-      };
-    } else {
-      // In Ouija mode, use the session's card position
-      return { x: session.card_x, y: session.card_y };
+  const handleSaveSessionName = () => {
+    if (sessionNameInput.trim()) {
+      updateSessionName(sessionNameInput);
+      setIsEditingSession(false);
     }
   };
 
@@ -124,6 +112,28 @@ export default function PlanningBoard({ sessionId, userName }: Props) {
     if (storyNameInput.trim()) {
       updateStoryName(storyNameInput);
       setIsEditingStory(false);
+    }
+  };
+
+  const handleClearStoryName = () => {
+    updateStoryName('User Story');
+    setStoryNameInput('User Story');
+    setIsEditingStory(false);
+  };
+
+  const handleShareLink = async () => {
+    // Share only the session URL without the name parameter
+    const baseUrl = window.location.origin;
+    const sessionPath = `/session/${sessionId}`;
+    const shareUrl = `${baseUrl}${sessionPath}`;
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setShowCopiedMessage(true);
+      setTimeout(() => setShowCopiedMessage(false), 2000);
+    } catch (err) {
+      // Fallback for browsers that don't support clipboard API
+      console.error('Failed to copy link:', err);
     }
   };
 
@@ -149,8 +159,9 @@ export default function PlanningBoard({ sessionId, userName }: Props) {
   if (!session) return null;
 
   const fibPositions = getFibonacciPositions();
-  const cardPosition = calculateAveragePosition();
+  const sharedCardPosition = { x: session.card_x, y: session.card_y };
   const otherUsers = users.filter(u => u.id !== currentUserId);
+  const currentUser = users.find(u => u.id === currentUserId);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-indigo-900 to-blue-900 p-8">
@@ -159,30 +170,54 @@ export default function PlanningBoard({ sessionId, userName }: Props) {
         <div className="bg-white/10 backdrop-blur-md rounded-lg p-6 shadow-xl">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex-1">
-              {isEditingStory ? (
-                <div className="flex gap-2">
+              {/* Session Name */}
+              {isEditingSession ? (
+                <div className="flex gap-2 mb-2">
                   <input
                     type="text"
-                    value={storyNameInput}
-                    onChange={(e) => setStoryNameInput(e.target.value)}
-                    onBlur={handleSaveStoryName}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSaveStoryName()}
+                    value={sessionNameInput}
+                    onChange={(e) => setSessionNameInput(e.target.value)}
+                    onBlur={handleSaveSessionName}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSaveSessionName()}
                     className="flex-1 px-4 py-2 bg-white/20 text-white placeholder-white/50 rounded-lg border border-white/30 focus:outline-none focus:border-white/60"
+                    placeholder="Enter session name"
                     autoFocus
                   />
+                  <button
+                    onClick={handleSaveSessionName}
+                    className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold transition-colors"
+                  >
+                    Save
+                  </button>
                 </div>
               ) : (
                 <h1
-                  className="text-2xl font-bold text-white cursor-pointer hover:text-purple-200 transition-colors"
-                  onClick={() => setIsEditingStory(true)}
+                  className="text-2xl font-bold text-white cursor-pointer hover:text-purple-200 transition-colors mb-2"
+                  onClick={() => setIsEditingSession(true)}
+                  title="Click to edit session name"
                 >
-                  {session.story_name}
+                  {session.session_name}
                 </h1>
               )}
-              <p className="text-white/60 text-sm mt-1">Session: {sessionId}</p>
+
+              <p className="text-white/60 text-sm">Session ID: {sessionId}</p>
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex gap-3 flex-wrap">
+              <div className="relative">
+                <button
+                  onClick={handleShareLink}
+                  className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-semibold transition-colors shadow-lg"
+                  title="Copy session link"
+                >
+                  📋 Share Link
+                </button>
+                {showCopiedMessage && (
+                  <div className="absolute top-full mt-2 left-1/2 transform -translate-x-1/2 bg-green-500 text-white px-3 py-1 rounded text-sm whitespace-nowrap">
+                    Link copied!
+                  </div>
+                )}
+              </div>
               <button
                 onClick={() => updateMode(session.mode === 'voting' ? 'ouija' : 'voting')}
                 className="px-6 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg font-semibold transition-colors shadow-lg"
@@ -218,6 +253,69 @@ export default function PlanningBoard({ sessionId, userName }: Props) {
         </div>
       </div>
 
+      {/* Voting Results Summary */}
+      <div className="max-w-6xl mx-auto mb-6">
+        <div className="bg-white/10 backdrop-blur-md rounded-lg p-6 shadow-xl">
+          {/* Title with Story Name */}
+          <div className="mb-4">
+            {isEditingStory ? (
+              <div>
+                <h2 className="text-xl font-bold text-white mb-2">Voting results for:</h2>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={storyNameInput}
+                    onChange={(e) => setStoryNameInput(e.target.value)}
+                    onBlur={handleSaveStoryName}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSaveStoryName()}
+                    className="flex-1 px-4 py-2 bg-white/20 text-white placeholder-white/50 rounded-lg border border-white/30 focus:outline-none focus:border-white/60"
+                    placeholder="Enter user story name"
+                    autoFocus
+                  />
+                  <button
+                    onClick={handleSaveStoryName}
+                    className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold transition-colors"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={handleClearStoryName}
+                    className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-semibold transition-colors"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <h2 className="text-xl font-bold text-white">
+                Voting results for:{' '}
+                <span
+                  className="cursor-pointer hover:text-purple-200 transition-colors underline decoration-2 decoration-purple-400"
+                  onClick={() => setIsEditingStory(true)}
+                  title="Click to edit user story"
+                >
+                  {session.story_name}
+                </span>
+              </h2>
+            )}
+          </div>
+
+          <div className="grid grid-cols-7 gap-2">
+            {FIBONACCI_VALUES.map(value => {
+              const count = users.filter(u => u.vote_value === value).length;
+              return (
+                <div key={value} className="text-center">
+                  <div className="bg-purple-500/30 rounded-lg p-3">
+                    <div className="text-2xl font-bold text-white">{value}</div>
+                    <div className="text-sm text-white/60">{count} vote{count !== 1 ? 's' : ''}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
       {/* Planning Board */}
       <div className="max-w-6xl mx-auto">
         <div
@@ -232,6 +330,13 @@ export default function PlanningBoard({ sessionId, userName }: Props) {
           {/* Mystical background effect */}
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_transparent_0%,_rgba(0,0,0,0.4)_100%)]" />
 
+          {/* Instructions */}
+          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-black/50 text-white px-6 py-3 rounded-full text-sm">
+            {session.mode === 'voting'
+              ? '🗳️ Move your cursor to place your vote card'
+              : '🔮 Click and drag to move the card with your team'}
+          </div>
+
           {/* Fibonacci value positions */}
           {fibPositions.map(({ value, x, y }) => (
             <div
@@ -245,8 +350,8 @@ export default function PlanningBoard({ sessionId, userName }: Props) {
             </div>
           ))}
 
-          {/* Other users' cursors */}
-          {otherUsers.map(user => (
+          {/* Other users' cursors - only show in Ouija mode */}
+          {session.mode === 'ouija' && otherUsers.map(user => (
             <div
               key={user.id}
               className="absolute transform -translate-x-1/2 -translate-y-1/2 pointer-events-none"
@@ -261,49 +366,52 @@ export default function PlanningBoard({ sessionId, userName }: Props) {
             </div>
           ))}
 
-          {/* Story card */}
-          <div
-            className="absolute transform -translate-x-1/2 -translate-y-1/2 pointer-events-none transition-all duration-300 ease-out"
-            style={{ left: `${cardPosition.x}%`, top: `${cardPosition.y}%` }}
-          >
-            <div className="bg-white rounded-xl p-6 shadow-2xl w-48 border-4 border-purple-400">
-              <div className="text-center">
-                <div className="text-4xl font-bold text-purple-900 mb-2">
-                  {getClosestFibonacci(cardPosition.x, cardPosition.y)}
+          {/* Individual user cards in Voting mode */}
+          {session.mode === 'voting' && users.map(user => {
+            const position = getUserCardPosition(user);
+            const isCurrentUser = user.id === currentUserId;
+            return (
+              <div
+                key={user.id}
+                className="absolute transform -translate-x-1/2 -translate-y-1/2 pointer-events-none transition-all duration-150 ease-out"
+                style={{ left: `${position.x}%`, top: `${position.y}%` }}
+              >
+                <div className={`bg-white rounded-xl p-4 shadow-2xl border-4 ${
+                  isCurrentUser ? 'border-green-400 w-40' : 'border-blue-400 w-36'
+                }`}>
+                  <div className="text-center">
+                    <div className={`font-bold text-purple-900 mb-1 ${
+                      isCurrentUser ? 'text-3xl' : 'text-2xl'
+                    }`}>
+                      {user.vote_value !== null ? user.vote_value : '?'}
+                    </div>
+                    <div className="text-xs text-gray-600 font-semibold truncate">
+                      {user.name}
+                    </div>
+                  </div>
                 </div>
-                <div className="text-xs text-gray-600">
-                  {session.mode === 'voting' ? 'Average Vote' : 'Team Estimate'}
+              </div>
+            );
+          })}
+
+          {/* Shared card - only in Ouija mode */}
+          {session.mode === 'ouija' && (
+            <div
+              className="absolute transform -translate-x-1/2 -translate-y-1/2 pointer-events-none transition-all duration-300 ease-out"
+              style={{ left: `${sharedCardPosition.x}%`, top: `${sharedCardPosition.y}%` }}
+            >
+              <div className="bg-white rounded-xl p-6 shadow-2xl w-48 border-4 border-purple-400">
+                <div className="text-center">
+                  <div className="text-4xl font-bold text-purple-900 mb-2">
+                    {getClosestFibonacci(sharedCardPosition.x, sharedCardPosition.y)}
+                  </div>
+                  <div className="text-xs text-gray-600">
+                    Team Estimate
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* Instructions */}
-          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black/50 text-white px-6 py-3 rounded-full text-sm">
-            {session.mode === 'voting'
-              ? '🗳️ Move your cursor to vote on story points'
-              : '🔮 Click and drag to move the card with your team'}
-          </div>
-        </div>
-      </div>
-
-      {/* Results Summary */}
-      <div className="max-w-6xl mx-auto mt-8">
-        <div className="bg-white/10 backdrop-blur-md rounded-lg p-6 shadow-xl">
-          <h2 className="text-xl font-bold text-white mb-4">Voting Results</h2>
-          <div className="grid grid-cols-7 gap-2">
-            {FIBONACCI_VALUES.map(value => {
-              const count = users.filter(u => u.vote_value === value).length;
-              return (
-                <div key={value} className="text-center">
-                  <div className="bg-purple-500/30 rounded-lg p-3">
-                    <div className="text-2xl font-bold text-white">{value}</div>
-                    <div className="text-sm text-white/60">{count} vote{count !== 1 ? 's' : ''}</div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          )}
         </div>
       </div>
     </div>

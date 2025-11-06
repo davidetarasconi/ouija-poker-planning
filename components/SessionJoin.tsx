@@ -7,6 +7,7 @@ import { Session } from '@/types';
 
 export default function SessionJoin() {
   const [userName, setUserName] = useState('');
+  const [sessionName, setSessionName] = useState('');
   const [sessionId, setSessionId] = useState('');
   const [mode, setMode] = useState<'create' | 'join'>('create');
   const [sessionData, setSessionData] = useState<Session | null>(null);
@@ -57,6 +58,11 @@ export default function SessionJoin() {
       return;
     }
 
+    if (mode === 'create' && !sessionName.trim()) {
+      alert('Please enter a session name');
+      return;
+    }
+
     const finalSessionId = mode === 'create' ? generateSessionId() : sessionId.toUpperCase();
 
     if (mode === 'join' && !finalSessionId) {
@@ -64,8 +70,12 @@ export default function SessionJoin() {
       return;
     }
 
-    // Navigate to session
-    router.push(`/session/${finalSessionId}?name=${encodeURIComponent(userName)}`);
+    // Navigate to session with optional session name for creation
+    const url = mode === 'create' && sessionName.trim()
+      ? `/session/${finalSessionId}?name=${encodeURIComponent(userName)}&sessionName=${encodeURIComponent(sessionName)}`
+      : `/session/${finalSessionId}?name=${encodeURIComponent(userName)}`;
+
+    router.push(url);
   };
 
   return (
@@ -96,6 +106,24 @@ export default function SessionJoin() {
                 required
               />
             </div>
+
+            {/* Session Name Input (only for create mode) */}
+            {mode === 'create' && (
+              <div>
+                <label htmlFor="sessionName" className="block text-sm font-medium text-white/90 mb-2">
+                  Session Name
+                </label>
+                <input
+                  id="sessionName"
+                  type="text"
+                  value={sessionName}
+                  onChange={(e) => setSessionName(e.target.value)}
+                  placeholder="e.g., Sprint 12 Planning"
+                  className="w-full px-4 py-3 bg-white/20 text-white placeholder-white/50 rounded-lg border border-white/30 focus:outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-400/50"
+                  required
+                />
+              </div>
+            )}
 
             {/* Mode Toggle */}
             <div className="flex gap-2 bg-white/10 p-1 rounded-lg">

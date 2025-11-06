@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { Session, User, Mode } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 
-export function useSession(sessionId: string, userName: string) {
+export function useSession(sessionId: string, userName: string, sessionName?: string) {
   const [session, setSession] = useState<Session | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [currentUserId] = useState(() => uuidv4());
@@ -49,20 +49,21 @@ export function useSession(sessionId: string, userName: string) {
         }
 
         if (!sessionData) {
-          // Create new session
+          // Create new session using upsert to handle race conditions
           console.log('Creating new session...');
-          const { data: newSession, error: createError } = await supabase
+          const { error: createError } = await supabase
             .from('sessions')
-            .insert({
+            .upsert({
               id: sessionId,
-              session_name: 'Planning Session',
+              session_name: sessionName || 'Planning Session',
               story_name: 'User Story',
               mode: 'voting',
               card_x: 50,
               card_y: 50,
-            })
-            .select()
-            .single();
+            }, {
+              onConflict: 'id',
+              ignoreDuplicates: true
+            });
 
           if (createError) {
             console.error('Create session error:', {
@@ -72,8 +73,21 @@ export function useSession(sessionId: string, userName: string) {
             });
             throw new Error(`Failed to create session: ${createError.message}`);
           }
-          console.log('Session created:', newSession);
-          setSession(newSession);
+
+          // Fetch the session (whether it was just created or already existed)
+          const { data: fetchedSession, error: fetchError } = await supabase
+            .from('sessions')
+            .select('*')
+            .eq('id', sessionId)
+            .single();
+
+          if (fetchError || !fetchedSession) {
+            console.error('Failed to fetch session after upsert:', fetchError);
+            throw new Error(`Failed to fetch session: ${fetchError?.message || 'Unknown error'}`);
+          }
+
+          console.log('Session created/fetched:', fetchedSession);
+          setSession(fetchedSession);
         } else {
           console.log('Session found:', sessionData);
           setSession(sessionData);
@@ -128,6 +142,7 @@ export function useSession(sessionId: string, userName: string) {
     }
 
     initSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
 
     // Set up realtime subscriptions
     const sessionChannel = supabase
@@ -214,6 +229,16 @@ export function useSession(sessionId: string, userName: string) {
     [currentUserId]
   );
 
+  const updateSessionName = useCallback(
+    async (name: string) => {
+      await supabase
+        .from('sessions')
+        .update({ session_name: name, updated_at: new Date().toISOString() })
+        .eq('id', sessionId);
+    },
+    [sessionId]
+  );
+
   const updateStoryName = useCallback(
     async (name: string) => {
       await supabase
@@ -266,6 +291,7 @@ export function useSession(sessionId: string, userName: string) {
     error,
     updateCursorPosition,
     updateVote,
+    updateSessionName,
     updateStoryName,
     updateMode,
     updateCardPosition,
